@@ -196,7 +196,7 @@ void Server::handlerThread()
             }
             else
             {
-                if (std::chrono::steady_clock::now() - connection.last_received_data_time > std::chrono::seconds(5))
+                if (std::chrono::steady_clock::now() - connection.last_received_data_time > std::chrono::seconds(50))
                     connection.remove = !connection.handleTimeout();
             }
             
@@ -228,7 +228,15 @@ void Server::update(float delta)
         
         if (connection.request_pending)
         {
-            string reply = http_handlers[connection.request.path](connection.request);
+            auto req = connection.request;
+            // Hacky fix to ensure that requests are not executed multiple times even though the API Connection object
+            // is reused.
+            // Without this, issuing different api command within the lifecycle of a single connection objext
+            // results in the commands being executed multiple times.
+            // TODO: Figure out and implement proper fix.
+            connection.request.query.clear();
+            string reply = http_handlers[connection.request.path](req);
+
             connection.startHttpReply(200);
             if (reply.size() > 0)
                 connection.httpChunk(reply);
